@@ -1,0 +1,50 @@
+---
+title: "Speed Test Results"
+format: html
+editor: visual
+execute: 
+  echo: false
+  warning: false
+  message: false
+---
+
+## Speed Test Results
+
+```{r setup}
+
+# Load packages
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse,
+               scales,          # Quick and easy number formatting - %s in cells
+               lubridate)       # Work with dates
+
+# Get data.
+df_results <- read_csv("speedtest_log.csv") |> 
+  mutate(start_time = ymd_hms(start_time))
+
+# Make it long
+df_results_long <- df_results |> 
+  pivot_longer(cols = -c(start_time, timestamp_utc, timestamp_local_tz, local_tz, result.url),
+               names_to = "metric",
+               values_to = "value")
+
+```
+
+The results
+
+```{r}
+
+# Download and upload bandwidth
+df_mbps <- df_results_long |> 
+  filter(metric == "download_mbps" | metric == "upload_mbps") 
+
+gg_mbps <- ggplot(df_mbps, aes(x = start_time, y = value, color = metric)) +
+  geom_line() +
+  scale_y_continuous(limits = ~ c(0, max(.x)*1.08)) +
+  theme_minimal()
+
+gg_mbps
+
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).
