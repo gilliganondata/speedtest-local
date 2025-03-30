@@ -17,7 +17,7 @@ pacman::p_load(tidyverse,
 # Set the file path for the logged results. Hard coding this so that, when
 # running as a cron job, it still puts the results in the same location
 # as the script.
-results_loc <- paste0(getwd(),"/Users/timwilson/R Projects/_personal_projects/speedtest-local/speedtest_log.csv")
+results_loc <- "/Users/timwilson/R Projects/_personal_projects/speedtest-local/speedtest_log.csv"
 
 # Run Speedtest CLI and capture output. Get the results as JSON 
 df_speedtest_output <- system("/opt/homebrew/bin/speedtest -f json --accept-license", intern = TRUE) 
@@ -88,5 +88,5 @@ if(file.exists(results_loc)){
 # Write out the updated results
 write_csv(update_log, results_loc)
 
-cat("Speed test started at", start_time, "ran successfully. Results log updated\n",
-    "and script completed at",format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z"), "\n")
+cat("Speed test started at", start_time, "ran successfully. Results log updated.",
+    "Script completed at",format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z"), "\n")
