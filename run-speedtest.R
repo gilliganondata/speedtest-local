@@ -6,7 +6,7 @@
 # "internet down" results are recorded AND to help with reading the log files.
 start_time <- format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z")
 # Output start time to console (and log it if running through cron)
-cat("Speed test started at", start_time)
+cat("Speed test started at", start_time,"\n")
 
 # Load required libraries
 if (!require("pacman")) install.packages("pacman")
@@ -14,8 +14,10 @@ pacman::p_load(tidyverse,
                lubridate,
                jsonlite)      
 
-# Set the file path for the logged results
-results_loc <- "speedtest_log.csv"
+# Set the file path for the logged results. Hard coding this so that, when
+# running as a cron job, it still puts the results in the same location
+# as the script.
+results_loc <- paste0(getwd(),"/Users/timwilson/R Projects/_personal_projects/speedtest-local/speedtest_log.csv")
 
 # Run Speedtest CLI and capture output. Get the results as JSON 
 df_speedtest_output <- system("/opt/homebrew/bin/speedtest -f json --accept-license", intern = TRUE) 
@@ -24,7 +26,7 @@ df_speedtest_output <- system("/opt/homebrew/bin/speedtest -f json --accept-lice
 # for all values except the start time. Otherwise, clean up the results so those can be logged
 if(length(df_speedtest_output) == 0){
   
-  cat("Speed test started at", start_time, "failed to run.")
+  cat("Speed test started at", start_time, "failed to run.\n")
   
   output_log_entry <- data.frame(start_time = start_time,
                                  timestamp_utc = NA,
@@ -69,7 +71,7 @@ if(length(df_speedtest_output) == 0){
            # URL to view the results of the test in a browser
            result.url)
   
-  cat("Speed test started at", start_time, "ran successfully. Output log entry created.")
+  cat("Speed test started at", start_time, "ran successfully. Output log entry created.\n")
   
 }
 
@@ -86,4 +88,5 @@ if(file.exists(results_loc)){
 # Write out the updated results
 write_csv(update_log, results_loc)
 
-cat("Speed test started at", start_time, "ran successfully. Results log updated.")
+cat("Speed test started at", start_time, "ran successfully. Results log updated\n",
+    "and script completed at",format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z"), "\n")

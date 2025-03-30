@@ -47,3 +47,9 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# Log file from the cron job if running as such
+*.log
+
+# Exported results (only relevant to the local machine)
+*.csv
