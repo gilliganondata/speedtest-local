@@ -44,7 +44,7 @@ df_results_long <- df_results |>
 
 ```
 
-The results
+All captured metrics:
 
 ```{r results}
 #| fig-height: 12
