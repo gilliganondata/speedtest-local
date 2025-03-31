@@ -53,3 +53,7 @@ rsconnect/
 
 # Exported results (only relevant to the local machine)
 *.csv
+
+# Output of visualizing the results
+*.html
+results-speedtest_files/*

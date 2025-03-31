@@ -8,8 +8,6 @@ execute:
   message: false
 ---
 
-## Speed Test Results
-
 ```{r setup}
 
 # Load packages
@@ -18,33 +16,50 @@ pacman::p_load(tidyverse,
                scales,          # Quick and easy number formatting - %s in cells
                lubridate)       # Work with dates
 
-# Get data.
+# Get data
 df_results <- read_csv("speedtest_log.csv") |> 
   mutate(start_time = ymd_hms(start_time))
 
-# Make it long
+# Make nicer metric names
+df_names <- tibble(orig_name = c("download_mbps",
+                                 "download_latency_iqm_ms",
+                                 "download_latency_jitter_ms",
+                                 "upload_mbps",
+                                 "upload_latency_iqm_ms",
+                                 "upload_latency_jitter_ms"),
+                   clean_name = c("Download Bandwidth (Mbps)",
+                                 "Download Latency IQM (ms)",
+                                 "Download Latency Jitter (ms)",
+                                 "Upload Bandwidth (Mbps)",
+                                 "Upload Latency IQM (ms)",
+                                 "Upload Latency Jitter (ms)"))
+
+# Make it long format and add the nicer names
 df_results_long <- df_results |> 
   pivot_longer(cols = -c(start_time, timestamp_utc, timestamp_local_tz, local_tz, result.url),
                names_to = "metric",
-               values_to = "value")
+               values_to = "value") |> 
+  left_join(df_names, by = c(metric = "orig_name"))
+
 
 ```
 
 The results
 
-```{r}
+```{r results}
+#| fig-height: 12
 
-# Download and upload bandwidth
-df_mbps <- df_results_long |> 
-  filter(metric == "download_mbps" | metric == "upload_mbps") 
+# Show all results with facets
+gg <- ggplot(df_results_long, aes(x = start_time, y = value)) +
+  geom_line(color = "#00035B") +
+  scale_y_continuous(expand = c(0,0), limits = ~ c(0, max(.x)*1.08)) +
+  facet_wrap(vars(clean_name), ncol = 1, scales="free_y", strip.position="top",
+             axes = "all_x") +
+  theme_minimal() +
+  theme(strip.text.x.top = element_text(size = 14, face = "bold"),
+        axis.title = element_blank(),
+        axis.line.x = element_line(color = "gray20", size=0.5),
+        axis.text.y = element_text(size = 10))
 
-gg_mbps <- ggplot(df_mbps, aes(x = start_time, y = value, color = metric)) +
-  geom_line() +
-  scale_y_continuous(limits = ~ c(0, max(.x)*1.08)) +
-  theme_minimal()
-
-gg_mbps
-
+gg
 ```
-
-The `echo: false` option disables the printing of code (only output is displayed).
