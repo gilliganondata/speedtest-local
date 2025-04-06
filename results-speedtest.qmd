@@ -41,6 +41,14 @@ df_results_long <- df_results |>
                values_to = "value") |> 
   left_join(df_names, by = c(metric = "orig_name"))
 
+# Make a df that has any hours that do NOT have 4 entries. This is a check to be able
+# to confirm that the script ran every 15 minutes. 
+df_incomplete <- df_results |> 
+  mutate(hour = round_date(start_time, "hour")) |> 
+  group_by(hour) |> summarize(num = n()) |> 
+  filter(num != 4) |> 
+  arrange(hour) 
+
 
 ```
 
