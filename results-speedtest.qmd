@@ -14,6 +14,7 @@ execute:
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(tidyverse,
                scales,          # Quick and easy number formatting - %s in cells
+               zoo,             # For rollmean() - rolling average
                lubridate)       # Work with dates
 
 # Get data
@@ -80,6 +81,32 @@ df_results_mbps <- df_results_long |>
   filter(grepl(".*Bandwidth.*", clean_name))
 
 gg <- ggplot(df_results_mbps, aes(x = start_time, y = value)) +
+  geom_line(color = "#00035B", size = 0.8) +
+  scale_y_continuous(expand = c(0,0), limits = ~ c(0, max(.x)*1.08)) +
+  facet_wrap(vars(clean_name), ncol = 1, scales="free_y", strip.position="top",
+             axes = "all_x") +
+  theme_minimal() +
+  theme(strip.text.x.top = element_text(size = 12, face = "bold"),
+        panel.spacing.y = unit(0.5, "cm"),
+        axis.title = element_blank(),
+        axis.line.x = element_line(color = "gray20", size=0.5),
+        axis.text.y = element_text(size = 10))
+
+gg
+
+
+```
+Download and Upload Bandwidth - 4-Part Rolling Average:
+
+```{r}
+
+df_results_mbps <- df_results_mbps |> 
+    # Rolling average
+  group_by(metric) |> 
+  mutate(rolling_avg = rollmean(value, k = 4, fill = NA, align = "right")) |> 
+  ungroup()
+
+gg <- ggplot(df_results_mbps, aes(x = start_time, y = rolling_avg)) +
   geom_line(color = "#00035B", size = 0.8) +
   scale_y_continuous(expand = c(0,0), limits = ~ c(0, max(.x)*1.08)) +
   facet_wrap(vars(clean_name), ncol = 1, scales="free_y", strip.position="top",
