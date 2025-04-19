@@ -15,7 +15,8 @@ if (!require("pacman")) install.packages("pacman")
 pacman::p_load(tidyverse,
                scales,          # Quick and easy number formatting - %s in cells
                zoo,             # For rollmean() - rolling average
-               lubridate)       # Work with dates
+               lubridate,       # Work with dates
+               gt)
 
 # Get data
 df_results <- read_csv("speedtest_log.csv") |> 
@@ -122,3 +123,52 @@ gg
 
 
 ```
+
+Find the outtages
+
+```{r}
+
+df_outtages <- df_results_long |> 
+  filter(is.na(value)) |> 
+  group_by(start_time) |> 
+  summarise() |> ungroup() |> 
+  arrange(start_time) |> 
+  mutate(time_diff = difftime(start_time, lag(start_time,1))) |> 
+  # Figure out if it's the start, end, or during (NA) the outtage
+  mutate(outtage_milestone = case_when(
+    is.na(time_diff) ~ "start",
+    time_diff > 25 ~ "start",
+    lead(time_diff, 1) > 25 ~ "end",
+    # The last row will be an end
+    is.na(lead(time_diff, 1)) ~ "end",
+    TRUE ~ NA
+  )) |> 
+  # Get just the start and end dates
+  filter(!is.na(outtage_milestone)) |> 
+  # Add the end date and duration outtage to the "start" row
+  mutate(outtage_end = if_else(outtage_milestone == "start", lead(start_time, 1), NA)) |> 
+  filter(outtage_milestone == "start") |> 
+  mutate(outtage_duration = round(difftime(outtage_end, start_time),2)) |> 
+  mutate(start_time = format(start_time, "%d-%b-%Y %I:%M %p"),
+         outtage_end = format(outtage_end, "%d-%b-%Y %I:%M %p"),
+         outtage_duration = format(outtage_duration, nsmall = 2)) |> 
+  select(first_detected = start_time,
+         last_detected = outtage_end,
+         outtage_duration)
+
+gt(df_outtages) |> 
+  cols_label(
+    first_detected = "First Detected",
+    last_detected = "Last Detected",
+    outtage_duration = "Outtage Duration"
+  ) |> 
+  tab_options(
+    table.align = "left"  # Left-justify entire table
+  ) |> 
+  tab_style(
+    style = cell_text(align = "center"),
+    locations = cells_column_labels()
+  )
+
+```
+
