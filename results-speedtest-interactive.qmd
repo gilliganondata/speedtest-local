@@ -2,6 +2,7 @@
 title: "Speed Test Results"
 format: html
 editor: visual
+server: shiny
 execute: 
   echo: false
   warning: false
@@ -54,73 +55,51 @@ df_incomplete <- df_results |>
 
 ```
 
-All captured metrics:
-
-```{r results}
-#| fig-height: 12
-
-# Show all results with facets
-gg <- ggplot(df_results_long, aes(x = start_time, y = value)) +
-  geom_bar(stat="identity", fill = "#00035B") +
-  scale_y_continuous(expand = c(0,0), limits = ~ c(0, max(.x)*1.08)) +
-  facet_wrap(vars(clean_name), ncol = 1, scales="free_y", strip.position="top",
-             axes = "all_x") +
-  theme_minimal() +
-  theme(strip.text.x.top = element_text(size = 14, face = "bold"),
-        axis.title = element_blank(),
-        axis.line.x = element_line(color = "gray20", size=0.5),
-        axis.text.y = element_text(size = 10))
-
-gg
-```
-
-Download and Upload Bandwidth:
 
 ```{r}
 
-df_results_mbps <- df_results_long |> 
-  filter(grepl(".*Bandwidth.*", clean_name))
+dateRangeInput("date_range", "Date Range", 
+               start = as.Date(min(df_results_long$start_time)),
+               end = as.Date(max(df_results_long$start_time)),
+               min = as.Date(min(df_results_long$start_time)),
+               max = as.Date(max(df_results_long$start_time)))
 
-gg <- ggplot(df_results_mbps, aes(x = start_time, y = value)) +
-  geom_line(color = "#00035B", size = 0.8) +
-  scale_y_continuous(expand = c(0,0), limits = ~ c(0, max(.x)*1.08)) +
-  facet_wrap(vars(clean_name), ncol = 1, scales="free_y", strip.position="top",
-             axes = "all_x") +
-  theme_minimal() +
-  theme(strip.text.x.top = element_text(size = 12, face = "bold"),
-        panel.spacing.y = unit(0.5, "cm"),
-        axis.title = element_blank(),
-        axis.line.x = element_line(color = "gray20", size=0.5),
-        axis.text.y = element_text(size = 10))
+sliderInput("rolling_avg", "Rolling Avg. (Periods)", min = 1, max = 25, value = 1)
 
-gg
-
+plotOutput("ts_plot")
 
 ```
 
-Download and Upload Bandwidth - 4-Part Rolling Average:
 
 ```{r}
+#| context: server
 
-df_results_mbps <- df_results_mbps |> 
-  # Rolling average
-  group_by(metric) |> 
-  mutate(rolling_avg = rollmean(value, k = 4, fill = NA, align = "right")) |> 
-  ungroup()
-
-gg <- ggplot(df_results_mbps, aes(x = start_time, y = rolling_avg)) +
-  geom_line(color = "#00035B", size = 0.8) +
-  scale_y_continuous(expand = c(0,0), limits = ~ c(0, max(.x)*1.08)) +
-  facet_wrap(vars(clean_name), ncol = 1, scales="free_y", strip.position="top",
-             axes = "all_x") +
-  theme_minimal() +
-  theme(strip.text.x.top = element_text(size = 12, face = "bold"),
-        panel.spacing.y = unit(0.5, "cm"),
-        axis.title = element_blank(),
-        axis.line.x = element_line(color = "gray20", size=0.5),
-        axis.text.y = element_text(size = 10))
-
-gg
+output$ts_plot <- renderPlot({
+  
+  df_results_mbps <- df_results_long |> 
+    # Limit to selected date range
+    filter(as.Date(start_time) >= as.Date(input$date_range[1]) &
+             as.Date(start_time) <= as.Date(input$date_range[2])) |>
+    filter(grepl(".*Bandwidth.*", clean_name)) |> 
+    # Rolling average
+    group_by(metric) |> 
+    mutate(rolling_avg = rollmean(value, k = input$rolling_avg, fill = NA, align = "right")) |> 
+    ungroup()
+  
+  gg <- ggplot(df_results_mbps, aes(x = start_time, y = rolling_avg)) +
+    geom_line(color = "#00035B", linewidth = 0.8) +
+    scale_y_continuous(expand = c(0,0), limits = ~ c(0, max(.x)*1.08)) +
+    facet_wrap(vars(clean_name), ncol = 1, scales="free_y", strip.position="top",
+               axes = "all_x") +
+    theme_minimal() +
+    theme(strip.text.x.top = element_text(size = 12, face = "bold"),
+          panel.spacing.y = unit(0.5, "cm"),
+          axis.title = element_blank(),
+          axis.line.x = element_line(color = "gray20", size=0.5),
+          axis.text.y = element_text(size = 10))
+  
+  gg
+})
 
 
 ```
@@ -164,8 +143,8 @@ df_outtages <- df_results_long |>
   mutate(start_time = format(start_time, "%d-%b-%Y %I:%M %p"),
          outtage_end = format(outtage_end, "%d-%b-%Y %I:%M %p"),
          outtage_duration = if_else(outtage_duration == 0, "1-29 minutes",
-           paste(as.character(round(outtage_duration/3600, 1)), "to", 
-                 as.character(round(outtage_duration/3600 + 0.5, 1)), "hours"))) |> 
+                                    paste(as.character(round(outtage_duration/3600, 1)), "to", 
+                                          as.character(round(outtage_duration/3600 + 0.5, 1)), "hours"))) |> 
   select(first_detected = start_time,
          last_detected = outtage_end,
          outtage_duration)
@@ -185,3 +164,4 @@ gt(df_outtages) |>
   )
 
 ```
+
