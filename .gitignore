@@ -57,3 +57,4 @@ rsconnect/
 # Output of visualizing the results
 *.html
 results-speedtest_files/*
+results-speedtest-interactive_files/*

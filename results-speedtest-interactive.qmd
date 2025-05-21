@@ -55,6 +55,7 @@ df_incomplete <- df_results |>
 
 ```
 
+### Configuration
 
 ```{r}
 
@@ -66,7 +67,21 @@ dateRangeInput("date_range", "Date Range",
 
 sliderInput("rolling_avg", "Rolling Avg. (Periods)", min = 1, max = 25, value = 1)
 
+```
+
+### Results
+
+```{r}
+
 plotOutput("ts_plot")
+
+```
+
+### Detected Outtages
+
+```{r}
+
+gt_output("outtages")
 
 ```
 
@@ -88,80 +103,96 @@ output$ts_plot <- renderPlot({
   
   gg <- ggplot(df_results_mbps, aes(x = start_time, y = rolling_avg)) +
     geom_line(color = "#00035B", linewidth = 0.8) +
+    scale_x_datetime(date_breaks = "1 day", date_labels = "%m/%d") +
     scale_y_continuous(expand = c(0,0), limits = ~ c(0, max(.x)*1.08)) +
     facet_wrap(vars(clean_name), ncol = 1, scales="free_y", strip.position="top",
                axes = "all_x") +
     theme_minimal() +
-    theme(strip.text.x.top = element_text(size = 12, face = "bold"),
+    theme(strip.text.x.top = element_text(size = 14, face = "bold"),
           panel.spacing.y = unit(0.5, "cm"),
+          panel.grid.minor.x = element_blank(),
           axis.title = element_blank(),
           axis.line.x = element_line(color = "gray20", size=0.5),
-          axis.text.y = element_text(size = 10))
+          axis.text.y = element_text(size = 10),
+          axis.text.x = element_text(size = 10, angle = 90))
   
   gg
 })
 
-
-```
-
-Find the outtages
-
-```{r}
-
-df_outtages <- df_results_long |> 
-  filter(is.na(value)) |> 
-  group_by(start_time) |> 
-  summarise() |> ungroup() |> 
-  arrange(start_time) |> 
-  mutate(time_diff = difftime(start_time, lag(start_time,1))) |> 
-  # Figure out if it's the start, end, or during (NA) the outtage... Step 1
-  mutate(outtage_milestone = case_when(
-    is.na(time_diff) ~ "start",
-    time_diff > 25 ~ "start",
-    lead(time_diff, 1) > 25 ~ "end",
-    # The last row will be an end
-    is.na(lead(time_diff, 1)) ~ "end",
-    TRUE ~ NA
-  )) |> 
-  # Get just the start and end dates
-  filter(!is.na(outtage_milestone)) |> 
-  # Add the end date and duration outtage to the "start" row.
-  mutate(outtage_end = case_when(
-    # For really short outtages, there will only be one outtage detected. The 
-    # above will flag that timestamp as "start" and then there will be no "end".
-    # Just use the start time for the end time
-    outtage_milestone == "start" & lead(outtage_milestone, 1) == "start" ~ start_time,
-    # Another corner case...same as the above, but it's the last row
-    outtage_milestone == "start" & is.na(lead(outtage_milestone, 1)) ~ start_time,
-    # The "normal" condition... start followed by an end
-    outtage_milestone == "start" & lead(outtage_milestone, 1) == "end" ~ lead(start_time, 1),
-    # The "end" rows...which will get filtered out next
-    TRUE ~ NA)) |> 
-  filter(outtage_milestone == "start") |> 
-  select(start_time, outtage_end) |> 
-  mutate(outtage_duration = round(difftime(outtage_end, start_time),1)) |> 
-  mutate(start_time = format(start_time, "%d-%b-%Y %I:%M %p"),
-         outtage_end = format(outtage_end, "%d-%b-%Y %I:%M %p"),
-         outtage_duration = if_else(outtage_duration == 0, "1-29 minutes",
-                                    paste(as.character(round(outtage_duration/3600, 1)), "to", 
-                                          as.character(round(outtage_duration/3600 + 0.5, 1)), "hours"))) |> 
-  select(first_detected = start_time,
-         last_detected = outtage_end,
-         outtage_duration)
-
-gt(df_outtages) |> 
-  cols_label(
-    first_detected = "First Detected",
-    last_detected = "Last Detected",
-    outtage_duration = "Outtage Duration"
-  ) |> 
-  tab_options(
-    table.align = "left"  # Left-justify entire table
-  ) |> 
-  tab_style(
-    style = cell_text(align = "center"),
-    locations = cells_column_labels()
-  )
+output$outtages <- render_gt({
+  
+  # Get the rows involved in outtages in the selected date range
+  df_outtages <- df_results_long |> 
+    # Limit to selected date range
+    filter(as.Date(start_time) >= as.Date(input$date_range[1]) &
+             as.Date(start_time) <= as.Date(input$date_range[2])) |>
+    filter(is.na(value)) |> 
+    group_by(start_time) |> 
+    summarise() |> ungroup() |> 
+    arrange(start_time)
+  
+  # If no outtages, then make a simple table
+  if(nrow(df_outtages)){
+  
+  df_outtages <- df_outtages |> 
+    mutate(time_diff = difftime(start_time, lag(start_time,1))) |> 
+    # Figure out if it's the start, end, or during (NA) the outtage... Step 1
+    mutate(outtage_milestone = case_when(
+      is.na(time_diff) ~ "start",
+      time_diff > 25 ~ "start",
+      lead(time_diff, 1) > 25 ~ "end",
+      # The last row will be an end
+      is.na(lead(time_diff, 1)) ~ "end",
+      TRUE ~ NA
+    )) |> 
+    # Get just the start and end dates
+    filter(!is.na(outtage_milestone)) |> 
+    # Add the end date and duration outtage to the "start" row.
+    mutate(outtage_end = case_when(
+      # For really short outtages, there will only be one outtage detected. The 
+      # above will flag that timestamp as "start" and then there will be no "end".
+      # Just use the start time for the end time
+      outtage_milestone == "start" & lead(outtage_milestone, 1) == "start" ~ start_time,
+      # Another corner case...same as the above, but it's the last row
+      outtage_milestone == "start" & is.na(lead(outtage_milestone, 1)) ~ start_time,
+      # The "normal" condition... start followed by an end
+      outtage_milestone == "start" & lead(outtage_milestone, 1) == "end" ~ lead(start_time, 1),
+      # The "end" rows...which will get filtered out next
+      TRUE ~ NA)) |> 
+    filter(outtage_milestone == "start") |> 
+    select(start_time, outtage_end) |> 
+    mutate(outtage_duration = round(difftime(outtage_end, start_time),1)) |> 
+    mutate(start_time = format(start_time, "%d-%b-%Y %I:%M %p"),
+           outtage_end = format(outtage_end, "%d-%b-%Y %I:%M %p"),
+           outtage_duration = if_else(outtage_duration == 0, "1-29 minutes",
+                                      paste(as.character(round(outtage_duration/3600, 1)), "to", 
+                                            as.character(round(outtage_duration/3600 + 0.5, 1)), "hours"))) |> 
+    select(first_detected = start_time,
+           last_detected = outtage_end,
+           outtage_duration)
+  
+  gt(df_outtages) |> 
+    cols_label(
+      first_detected = "First Detected",
+      last_detected = "Last Detected",
+      outtage_duration = "Outtage Duration"
+    ) |> 
+    tab_options(
+      table.align = "left"  # Left-justify entire table
+    ) |> 
+    tab_style(
+      style = cell_text(align = "center"),
+      locations = cells_column_labels()
+    )
+  } else {
+    df_no_outtages <- tibble(Outtage = "None Detected") |> 
+      gt() |> 
+    tab_options(
+      table.align = "left"  # Left-justify entire table
+    )
+  }
+  
+})
 
 ```
 
