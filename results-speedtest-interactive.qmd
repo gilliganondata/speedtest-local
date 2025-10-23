@@ -65,7 +65,7 @@ dateRangeInput("date_range", "Date Range",
                min = as.Date(min(df_results_long$start_time)),
                max = as.Date(max(df_results_long$start_time)))
 
-sliderInput("rolling_avg", "Rolling Avg. (Periods)", min = 1, max = 25, value = 1)
+sliderInput("rolling_avg", "Rolling Avg. (Periods)", min = 1, max = 50, value = 1)
 
 ```
 
