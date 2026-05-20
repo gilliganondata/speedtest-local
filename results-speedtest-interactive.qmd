@@ -60,7 +60,7 @@ df_incomplete <- df_results |>
 ```{r}
 
 dateRangeInput("date_range", "Date Range", 
-               start = as.Date(min(df_results_long$start_time)),
+               start = as.Date(max(df_results_long$start_time))-30,
                end = as.Date(max(df_results_long$start_time)),
                min = as.Date(min(df_results_long$start_time)),
                max = as.Date(max(df_results_long$start_time)))
