@@ -44,9 +44,14 @@ df_results_long <- df_results |>
                values_to = "value") |> 
   left_join(df_names, by = c(metric = "orig_name"))
 
+# Load key events log
+df_key_events <- read_csv("key_events_log.csv") |>
+  mutate(date = ymd(date),
+         datetime_noon = as.POSIXct(paste(date, "12:00:00"), tz = "UTC"))
+
 # Make a df that has any hours that do NOT have 4 entries. This is a check to be able
-# to confirm that the script ran every 15 minutes. 
-df_incomplete <- df_results |> 
+# to confirm that the script ran every 15 minutes.
+df_incomplete <- df_results |>
   mutate(hour = round_date(start_time, "hour")) |> 
   group_by(hour) |> summarize(num = n()) |> 
   filter(num != 4) |> 
@@ -101,8 +106,22 @@ output$ts_plot <- renderPlot({
     mutate(rolling_avg = rollmean(value, k = input$rolling_avg, fill = NA, align = "right")) |> 
     ungroup()
   
+  # Filter key events to the selected date range
+  df_events_in_range <- df_key_events |>
+    filter(date >= as.Date(input$date_range[1]) &
+             date <= as.Date(input$date_range[2]))
+
   gg <- ggplot(df_results_mbps, aes(x = start_time, y = rolling_avg)) +
     geom_line(color = "#00035B", linewidth = 0.8) +
+    {if (nrow(df_events_in_range) > 0)
+        geom_vline(data = df_events_in_range,
+                   aes(xintercept = as.numeric(datetime_noon)),
+                   color = "firebrick", linewidth = 0.6, linetype = "dashed")} +
+    {if (nrow(df_events_in_range) > 0)
+        geom_text(data = df_events_in_range,
+                  aes(x = datetime_noon + 3600, y = Inf, label = event),
+                  color = "firebrick", size = 3, hjust = 0, vjust = 1.3,
+                  inherit.aes = FALSE)} +
     scale_x_datetime(date_breaks = "1 day", date_labels = "%m/%d") +
     scale_y_continuous(expand = c(0,0), limits = ~ c(0, max(.x)*1.08)) +
     facet_wrap(vars(clean_name), ncol = 1, scales="free_y", strip.position="top",

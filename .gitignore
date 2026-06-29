@@ -58,3 +58,4 @@ rsconnect/
 *.html
 results-speedtest_files/*
 results-speedtest-interactive_files/*
+.positai
