@@ -17,6 +17,7 @@ pacman::p_load(tidyverse,
                scales,          # Quick and easy number formatting - %s in cells
                zoo,             # For rollmean() - rolling average
                lubridate,       # Work with dates
+               stringr,
                gt)
 
 # Get data
@@ -47,7 +48,8 @@ df_results_long <- df_results |>
 # Load key events log
 df_key_events <- read_csv("key_events_log.csv") |>
   mutate(date = ymd(date),
-         datetime_noon = as.POSIXct(paste(date, "12:00:00"), tz = "UTC"))
+         datetime_noon = as.POSIXct(paste(date, "12:00:00"), tz = "UTC"),
+         event = str_wrap(event, width=20))
 
 # Make a df that has any hours that do NOT have 4 entries. This is a check to be able
 # to confirm that the script ran every 15 minutes.
@@ -78,7 +80,7 @@ sliderInput("rolling_avg", "Rolling Avg. (Periods)", min = 1, max = 50, value = 
 
 ```{r}
 
-plotOutput("ts_plot")
+plotOutput("ts_plot", height = 600)
 
 ```
 
@@ -118,12 +120,13 @@ output$ts_plot <- renderPlot({
                    aes(xintercept = as.numeric(datetime_noon)),
                    color = "firebrick", linewidth = 0.6, linetype = "dashed")} +
     {if (nrow(df_events_in_range) > 0)
-        geom_text(data = df_events_in_range,
-                  aes(x = datetime_noon + 3600, y = Inf, label = event),
-                  color = "firebrick", size = 3, hjust = 0, vjust = 1.3,
+        geom_label(data = df_events_in_range,
+                  aes(x = datetime_noon + 3800, y = Inf, label = event),
+                  label.size = 0, color = "firebrick", size = 4, hjust = 0, vjust = 1.3,
                   inherit.aes = FALSE)} +
     scale_x_datetime(date_breaks = "1 day", date_labels = "%m/%d") +
-    scale_y_continuous(expand = c(0,0), limits = ~ c(0, max(.x)*1.08)) +
+    scale_y_continuous(expand = c(0,0), limits = ~ c(0, ifelse(nrow(df_events_in_range)==0, 
+                                                                    max(.x)*1.08, max(.x)*1.4))) +
     facet_wrap(vars(clean_name), ncol = 1, scales="free_y", strip.position="top",
                axes = "all_x") +
     theme_minimal() +
